@@ -144,3 +144,37 @@ export interface SubtreeNode {
   note: Note;
   children: SubtreeNode[];
 }
+
+// ---- WF2 types ----
+
+export type AttachmentRole = "image" | "file" | "content" | "embed" | (string & {});
+
+export interface Attachment {
+  attachmentId: string;
+  ownerId: string;
+  role: string;
+  mime: string;
+  title: string;
+  position: number;
+  blobId: string;
+  dateModified: string;
+  utcDateModified: string;
+  utcDateScheduledForErasureSince: string | null;
+  contentLength?: number;
+}
+
+export interface CreateAttachmentInput {
+  ownerId: string;
+  role: string;
+  mime: string;
+  title: string;
+  position: number;
+  content?: string; // plain string (text only); binary via setAttachmentContent
+}
+
+export type UpdateAttachmentInput = Pick<Attachment, "position"> &
+  Partial<Pick<Attachment, "role" | "mime" | "title">>;
+
+export type MetricsFormat = "prometheus" | "json";
+
+export type ExportFormat = "html" | "markdown";

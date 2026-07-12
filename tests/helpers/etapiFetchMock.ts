@@ -32,6 +32,10 @@ export function makeFetchMock(initialRoutes: FetchRoute[] = []) {
         async json() {
           return typeof body === "string" ? JSON.parse(body) : body;
         },
+        async arrayBuffer() {
+          const text = typeof body === "string" ? body : JSON.stringify(body ?? "");
+          return new TextEncoder().encode(text).buffer;
+        },
       } as Response;
     },
   };

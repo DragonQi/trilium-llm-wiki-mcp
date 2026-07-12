@@ -3,16 +3,21 @@ import { loadConfig } from "../lib/config.js";
 import { EtapiError } from "../lib/errors.js";
 import type {
   AppInfo,
+  Attachment,
   Attribute,
   Branch,
+  CreateAttachmentInput,
   CreateAttributeInput,
   CreateBranchInput,
   CreateNoteInput,
   CreateNoteResult,
   EtapiErrorPayload,
+  ExportFormat,
+  MetricsFormat,
   Note,
   SearchNotesParams,
   SubtreeNode,
+  UpdateAttachmentInput,
   UpdateNoteInput,
 } from "./types.js";
 
@@ -120,6 +125,68 @@ export class EtapiClient {
     }
   }
 
+  protected async requestBuffer(
+    method: string,
+    path: string,
+    opts: { query?: Record<string, string | undefined> } = {},
+  ): Promise<Buffer> {
+    const url = new URL(`${this.cfg.url}/etapi${path}`);
+    for (const [k, v] of Object.entries(opts.query ?? {})) {
+      if (v !== undefined) url.searchParams.set(k, v);
+    }
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), this.cfg.timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method,
+        headers: { Authorization: this.cfg.token },
+        signal: ac.signal,
+      });
+      if (!resp.ok) {
+        let payload: EtapiErrorPayload;
+        try {
+          payload = (await resp.json()) as EtapiErrorPayload;
+        } catch {
+          payload = { status: resp.status, code: "GENERIC", message: resp.statusText };
+        }
+        throw new EtapiError(payload);
+      }
+      return Buffer.from(await resp.arrayBuffer());
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  protected async sendRaw(
+    method: string,
+    path: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    const url = new URL(`${this.cfg.url}/etapi${path}`);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), this.cfg.timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method,
+        headers: { Authorization: this.cfg.token, "Content-Type": contentType },
+        body,
+        signal: ac.signal,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        let payload: EtapiErrorPayload;
+        try {
+          payload = (await resp.json()) as EtapiErrorPayload;
+        } catch {
+          payload = { status: resp.status, code: "GENERIC", message: resp.statusText };
+        }
+        throw new EtapiError(payload);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // ---- direct endpoints ----
   getAppInfo(): Promise<AppInfo> {
     return this.request<AppInfo>("GET", "/app-info");
@@ -197,6 +264,87 @@ export class EtapiClient {
   }
   getInboxNote(date: string): Promise<Note> {
     return this.request<Note>("GET", `/inbox/${encodeURIComponent(date)}`);
+  }
+
+  // ---- WF2 direct endpoints ----
+  createNoteRevision(noteId: string): Promise<void> {
+    return this.request<void>("POST", `/notes/${encodeURIComponent(noteId)}/revision`);
+  }
+  createAttachment(input: CreateAttachmentInput): Promise<Attachment> {
+    return this.request<Attachment>("POST", "/attachments", { body: input });
+  }
+  getAttachment(attachmentId: string): Promise<Attachment> {
+    return this.request<Attachment>("GET", `/attachments/${encodeURIComponent(attachmentId)}`);
+  }
+  listNoteAttachments(noteId: string): Promise<Attachment[]> {
+    return this.request<Attachment[]>("GET", `/notes/${encodeURIComponent(noteId)}/attachments`);
+  }
+  updateAttachment(attachmentId: string, patch: UpdateAttachmentInput): Promise<Attachment> {
+    return this.request<Attachment>("PATCH", `/attachments/${encodeURIComponent(attachmentId)}`, {
+      body: patch,
+    });
+  }
+  deleteAttachment(attachmentId: string): Promise<void> {
+    return this.request<void>("DELETE", `/attachments/${encodeURIComponent(attachmentId)}`);
+  }
+  getAttachmentContent(attachmentId: string): Promise<Buffer> {
+    return this.requestBuffer("GET", `/attachments/${encodeURIComponent(attachmentId)}/content`);
+  }
+  setAttachmentContent(attachmentId: string, bytes: Buffer): Promise<void> {
+    return this.sendRaw(
+      "PUT",
+      `/attachments/${encodeURIComponent(attachmentId)}/content`,
+      bytes,
+      "application/octet-stream",
+    );
+  }
+  exportNoteSubtree(noteId: string, format: ExportFormat = "html"): Promise<Buffer> {
+    return this.requestBuffer("GET", `/notes/${encodeURIComponent(noteId)}/export`, {
+      query: { format },
+    });
+  }
+  async importNoteZip(noteId: string, zipBytes: Buffer): Promise<CreateNoteResult> {
+    const url = new URL(`${this.cfg.url}/etapi/notes/${encodeURIComponent(noteId)}/import`);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), this.cfg.timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: this.cfg.token, "Content-Type": "application/zip" },
+        body: zipBytes,
+        signal: ac.signal,
+      });
+      if (!resp.ok) {
+        let payload: EtapiErrorPayload;
+        try {
+          payload = (await resp.json()) as EtapiErrorPayload;
+        } catch {
+          payload = { status: resp.status, code: "GENERIC", message: resp.statusText };
+        }
+        throw new EtapiError(payload);
+      }
+      return (await resp.json()) as CreateNoteResult;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  getWeekFirstDayNote(date: string): Promise<Note> {
+    return this.request<Note>("GET", `/calendar/week-first-day/${encodeURIComponent(date)}`);
+  }
+  getMonthNote(month: string): Promise<Note> {
+    return this.request<Note>("GET", `/calendar/months/${encodeURIComponent(month)}`);
+  }
+  getYearNote(year: string): Promise<Note> {
+    return this.request<Note>("GET", `/calendar/years/${encodeURIComponent(year)}`);
+  }
+  logout(): Promise<void> {
+    return this.request<void>("POST", "/auth/logout");
+  }
+  createBackup(name: string): Promise<void> {
+    return this.request<void>("PUT", `/backup/${encodeURIComponent(name)}`);
+  }
+  getMetrics(format: MetricsFormat = "json"): Promise<string> {
+    return this.requestBuffer("GET", "/metrics", { query: { format } }).then((b) => b.toString("utf8"));
   }
 
   // ---- composite methods (ETAPI has no direct endpoint) ----
@@ -297,10 +445,111 @@ export class EtapiClient {
     await this.refreshNoteOrdering(toParentNoteId);
     return branch;
   }
+
+  // ---- WF2 composite methods ----
+  async upsertNote(input: {
+    parentNoteId: string;
+    title: string;
+    type: CreateNoteInput["type"];
+    content: string;
+    mime?: string;
+  }): Promise<{ note: Note; created: boolean }> {
+    const hits = await this.searchNotes({ search: input.title });
+    const exact = hits.find((n) => n.title === input.title);
+    if (exact) {
+      const note = await this.updateNote(exact.noteId, {
+        title: input.title,
+        type: input.type,
+        mime: input.mime,
+      });
+      await this.updateNoteContent(exact.noteId, input.content);
+      return { note, created: false };
+    }
+    const r = await this.createNote({
+      parentNoteId: input.parentNoteId,
+      title: input.title,
+      type: input.type,
+      content: input.content,
+      mime: input.mime,
+    });
+    return { note: r.note, created: true };
+  }
+
+  async getBacklinks(noteId: string, relationNames?: string[]): Promise<Note[]> {
+    const names = relationNames ?? ["derivedFrom", "relatesTo", "mentions", "about", "partOf"];
+    const seen = new Map<string, Note>();
+    for (const name of names) {
+      const hits = await this.searchNotes({ search: `~${name}.noteId = ${noteId}` });
+      for (const n of hits) if (!seen.has(n.noteId)) seen.set(n.noteId, n);
+    }
+    return [...seen.values()];
+  }
+
+  async findOrphans(rootNoteId: string): Promise<Note[]> {
+    const subtree = await this.getNoteSubtree(rootNoteId, { maxNodes: 200 });
+    const flat: Note[] = [];
+    const walk = (node: SubtreeNode): void => {
+      flat.push(node.note);
+      node.children.forEach(walk);
+    };
+    walk(subtree);
+    const orphans: Note[] = [];
+    for (const note of flat) {
+      if (note.noteId === rootNoteId) continue;
+      const backlinks = await this.getBacklinks(note.noteId);
+      if (backlinks.length === 0) orphans.push(note);
+    }
+    return orphans;
+  }
+
+  async replaceNoteSection(noteId: string, heading: string, newInnerHtml: string): Promise<void> {
+    const html = await this.getNoteContent(noteId);
+    const open = new RegExp(
+      `(<h([1-6])>[^<]*${escapeRegExp(heading)}[^<]*</h\\2>)`,
+      "i",
+    );
+    const m = open.exec(html);
+    if (!m) {
+      const appended = `${html}<h2>${heading}</h2>${newInnerHtml}`;
+      await this.updateNoteContent(noteId, appended);
+      return;
+    }
+    const level = m[2]!;
+    const startIdx = m.index! + m[0].length;
+    const nextHeading = new RegExp(`<h([1-${level}])\\b`, "i");
+    const tail = html.slice(startIdx);
+    const next = nextHeading.exec(tail);
+    const sectionEnd = next ? startIdx + next.index : html.length;
+    const updated = html.slice(0, startIdx) + newInnerHtml + html.slice(sectionEnd);
+    await this.updateNoteContent(noteId, updated);
+  }
+
+  async bulkSetAttributes(
+    search: string,
+    input: { type: "label" | "relation"; name: string; value?: string; isInheritable?: boolean },
+  ): Promise<{ updated: string[] }> {
+    const notes = await this.searchNotes({ search });
+    const updated: string[] = [];
+    for (const n of notes) {
+      await this.upsertAttribute({
+        noteId: n.noteId,
+        type: input.type,
+        name: input.name,
+        value: input.value,
+        isInheritable: input.isInheritable,
+      });
+      updated.push(n.noteId);
+    }
+    return { updated };
+  }
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function createClientFromEnv(): EtapiClient {

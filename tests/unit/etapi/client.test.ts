@@ -301,3 +301,167 @@ describe("EtapiClient composite methods", () => {
     expect(path.map((n) => n.noteId)).toEqual(["mid", "root"]);
   });
 });
+
+describe("EtapiClient binary helpers", () => {
+  it("requestBuffer returns raw bytes", async () => {
+    fetchMock.routes = [
+      { match: /\/notes\/root\/export/, method: "GET", respond: { body: "PK\x03\x04ZIP" } },
+    ];
+    const client = makeClient();
+    // @ts-expect-error: protected binary helper accessed in test
+    const buf = await client.requestBuffer("GET", "/notes/root/export", { query: { format: "html" } });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.toString()).toContain("ZIP");
+  });
+
+  it("sendRaw posts bytes and tolerates 204", async () => {
+    fetchMock.routes = [
+      { match: /\/attachments\/a1\/content$/, method: "PUT", respond: { status: 204, body: "" } },
+    ];
+    const client = makeClient();
+    // @ts-expect-error: protected binary helper accessed in test
+    await expect(
+      client.sendRaw("PUT", "/attachments/a1/content", Buffer.from("x"), "text/plain"),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("EtapiClient WF2 direct methods", () => {
+  it("createNoteRevision POSTs to /revision", async () => {
+    fetchMock.routes = [
+      { match: /\/notes\/n1\/revision$/, method: "POST", respond: { status: 204, body: "" } },
+    ];
+    const client = makeClient();
+    await expect(client.createNoteRevision("n1")).resolves.toBeUndefined();
+  });
+  it("createAttachment POSTs JSON", async () => {
+    fetchMock.routes = [
+      {
+        match: /\/attachments$/,
+        method: "POST",
+        respond: { status: 201, body: { attachmentId: "at1", ownerId: "n1" } as Attribute },
+      },
+    ];
+    const client = makeClient();
+    const a = await client.createAttachment({
+      ownerId: "n1",
+      role: "image",
+      mime: "image/png",
+      title: "t",
+      position: 0,
+    });
+    expect(a.attachmentId).toBe("at1");
+  });
+  it("listNoteAttachments returns array", async () => {
+    fetchMock.routes = [
+      {
+        match: /\/notes\/n1\/attachments$/,
+        method: "GET",
+        respond: { body: [{ attachmentId: "at1" } as Attribute] },
+      },
+    ];
+    const client = makeClient();
+    const list = await client.listNoteAttachments("n1");
+    expect(list).toHaveLength(1);
+  });
+  it("exportNoteSubtree returns Buffer", async () => {
+    fetchMock.routes = [{ match: /\/notes\/root\/export/, method: "GET", respond: { body: "PKZIP" } }];
+    const client = makeClient();
+    const buf = await client.exportNoteSubtree("root", "markdown");
+    expect(Buffer.isBuffer(buf)).toBe(true);
+  });
+  it("getMonthNote hits /calendar/months/", async () => {
+    fetchMock.routes = [
+      { match: /\/calendar\/months\/2026-07$/, method: "GET", respond: { body: { noteId: "m1" } as Note } },
+    ];
+    const client = makeClient();
+    const n = await client.getMonthNote("2026-07");
+    expect(n.noteId).toBe("m1");
+  });
+  it("getMetrics returns text", async () => {
+    fetchMock.routes = [
+      { match: /\/metrics\?format=json/, method: "GET", respond: { body: '{"version":"0.95.0"}' } },
+    ];
+    const client = makeClient();
+    const txt = await client.getMetrics("json");
+    expect(txt).toContain("0.95.0");
+  });
+});
+
+describe("EtapiClient WF2 composite methods", () => {
+  it("upsertNote creates when no exact-title match", async () => {
+    fetchMock.routes = [
+      { match: /\/notes\?search=New/, method: "GET", respond: { body: { results: [] } } },
+      {
+        match: /\/create-note$/,
+        method: "POST",
+        respond: {
+          status: 201,
+          body: { note: { noteId: "n1" } as Note, branch: { branchId: "b1" } as Branch },
+        },
+      },
+    ];
+    const client = makeClient();
+    const r = await client.upsertNote({
+      parentNoteId: "root",
+      title: "New",
+      type: "text",
+      content: "<p>x</p>",
+    });
+    expect(r.created).toBe(true);
+    expect(r.note.noteId).toBe("n1");
+  });
+
+  it("upsertNote updates when exact-title match exists", async () => {
+    fetchMock.routes = [
+      {
+        match: /\/notes\?search=Existing/,
+        method: "GET",
+        respond: { body: { results: [{ noteId: "e1", title: "Existing" } as Note] } },
+      },
+      { match: /\/notes\/e1$/, method: "PATCH", respond: { body: { noteId: "e1", title: "Existing" } as Note } },
+      { match: /\/notes\/e1\/content$/, method: "PUT", respond: { status: 204, body: "" } },
+    ];
+    const client = makeClient();
+    const r = await client.upsertNote({
+      parentNoteId: "root",
+      title: "Existing",
+      type: "text",
+      content: "<p>y</p>",
+    });
+    expect(r.created).toBe(false);
+  });
+
+  it("getBacklinks dedupes across relation names", async () => {
+    fetchMock.routes = [
+      { match: /derivedFrom\.noteId/, method: "GET", respond: { body: { results: [{ noteId: "a" } as Note] } } },
+      {
+        match: /relatesTo\.noteId/,
+        method: "GET",
+        respond: { body: { results: [{ noteId: "a" }, { noteId: "b" } as Note] } },
+      },
+      { match: /mentions\.noteId/, method: "GET", respond: { body: { results: [] } } },
+      { match: /about\.noteId/, method: "GET", respond: { body: { results: [] } } },
+      { match: /partOf\.noteId/, method: "GET", respond: { body: { results: [] } } },
+    ];
+    const client = makeClient();
+    const bl = await client.getBacklinks("t");
+    expect(bl.map((n) => n.noteId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("bulkSetAttributes upserts across matched notes", async () => {
+    fetchMock.routes = [
+      {
+        match: /\/notes\?search=%23status/,
+        method: "GET",
+        respond: { body: { results: [{ noteId: "n1" } as Note, { noteId: "n2" } as Note] } },
+      },
+      { match: /\/notes\/n1$/, method: "GET", respond: { body: { noteId: "n1", attributes: [] } as Note } },
+      { match: /\/notes\/n2$/, method: "GET", respond: { body: { noteId: "n2", attributes: [] } as Note } },
+      { match: /\/attributes$/, method: "POST", respond: { status: 201, body: { attributeId: "x" } as Attribute } },
+    ];
+    const client = makeClient();
+    const r = await client.bulkSetAttributes("#status", { type: "label", name: "status", value: "weak" });
+    expect(r.updated.sort()).toEqual(["n1", "n2"]);
+  });
+});
