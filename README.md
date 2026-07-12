@@ -6,9 +6,9 @@ single backend for a personal **LLM-wiki** (the [Karpathy methodology](https://g
 ingest sources, query accumulated knowledge, lint for drift — with Trilium as
 the typed-graph store and search engine.
 
-> **MCP = the hands** (51 tools). **The skill = the brain** (when/how to use them). **Trilium = the backend** (notes = pages, relations = typed graph, labels = queryable metadata, built-in search = the "map").
+> **MCP = the hands** (52 tools). **The skill = the brain** (when/how to use them). **Trilium = the backend** (notes = pages, relations = typed graph, labels = queryable metadata, built-in search = the "map").
 
-Clean-room, MIT, ESM TypeScript. 51 MCP tools, a companion CLI, a SKILL, and
+Clean-room, MIT, ESM TypeScript. 52 MCP tools, a companion CLI, a SKILL, and
 SessionStart/Stop hooks — all tested against a live Docker Trilium.
 
 ---
@@ -48,7 +48,7 @@ the `trilium-wiki` skill takes over.
 
 | Bin | Role |
 |---|---|
-| `trilium-llm-wiki-mcp` / `trilium-mcp` | stdio MCP server — the agent's **hands** (51 tools: notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export/import, calendar, system, …). |
+| `trilium-llm-wiki-mcp` / `trilium-mcp` | stdio MCP server — the agent's **hands** (52 tools: notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export/import, calendar, system, …). |
 | `trilium-wiki` | companion CLI — automation **outside** MCP (hooks fire when MCP isn't connected): `init`, `brief`, `checkpoint`, `doctor`, `install`. |
 
 > **npx note:** the package ships multiple bins, so be explicit —
@@ -106,7 +106,7 @@ hooks block in your config repo and run `trilium-wiki install` on each PC.
 ```
                    ┌───────────────────────────┐
    Claude Code ───▶│ trilium-mcp (MCP/stdio)   │──┐  ETAPI
-   (the agent)     │ 51 tools over EtapiClient │  │  HTTP
+   (the agent)     │ 52 tools over EtapiClient │  │  HTTP
                    └───────────────────────────┘  ▼
    SessionStart ──▶┌───────────────────────────┐  ┌──────────────┐
    Stop ──────────▶│ trilium-wiki (CLI)        │─▶│ TriliumNext  │
@@ -117,7 +117,7 @@ hooks block in your config repo and run `trilium-wiki install` on each PC.
 
 - **`src/etapi/client.ts`** — the single ETAPI client (engine + direct +
   composite methods). Used by both `trilium-mcp` and `trilium-wiki`.
-- **`src/tools/*.ts`** — 51 thin MCP tools (handler + `register…`).
+- **`src/tools/*.ts`** — 52 thin MCP tools (handler + `register…`).
 - **`src/graph/`** — relevance model (`find_related`, 4-signal) + retrieval
   pipeline (`query_wiki`), over `graphology`.
 - **`src/cli/`** — the `trilium-wiki` companion CLI.
@@ -136,10 +136,10 @@ npm run lint
 163 tests (127 unit + 36 integration) cover every tool, the graph core, the CLI,
 and a full ingest→query→lint→delete methodology cycle.
 
-## Tool reference (51)
+## Tool reference (52)
 
 Notes (read/search/write/tree/subtree/path/append/move) · attributes (get/set/
-delete/upsert + extras) · branches/clone · attachments (7) · export/import ·
+add/delete/upsert + extras) · branches/clone · attachments (7) · export/import ·
 revisions (snapshot) · calendar (day/week/month/year/inbox) · system (login/
 logout/backup/metrics) · composite (`upsert_note`, `get_backlinks`, `find_orphans`,
 `search_by_attribute`, `replace_note_section`, `bulk_set_attributes`) · graph

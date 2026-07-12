@@ -4,6 +4,7 @@ import {
   getAttributesHandler,
   setAttributeHandler,
   deleteAttributeHandler,
+  addAttributeHandler,
 } from "../../../src/tools/attributes.js";
 
 beforeEach(resetMockStore);
@@ -44,5 +45,41 @@ describe("delete_attribute handler", () => {
     const res = await deleteAttributeHandler({ attributeId: "a1" }, client);
     expect(client.deleteAttribute).toHaveBeenCalledWith("a1");
     expect((res.content[0] as { text: string }).text).toContain("a1");
+  });
+});
+
+describe("add_attribute handler", () => {
+  it("creates via client.createAttribute (create-only, does NOT upsert)", async () => {
+    const client = mockClient();
+    client.createAttribute.mockResolvedValue({ attributeId: "a1", value: "t1" });
+    const res = await addAttributeHandler(
+      { noteId: "n1", type: "relation", name: "relatesTo", value: "t1" },
+      client,
+    );
+    expect(client.createAttribute).toHaveBeenCalledWith({
+      noteId: "n1",
+      type: "relation",
+      name: "relatesTo",
+      value: "t1",
+      isInheritable: undefined,
+    });
+    expect(client.upsertAttribute).not.toHaveBeenCalled();
+    expect(res.isError).toBeFalsy();
+  });
+
+  it("passes isInheritable through", async () => {
+    const client = mockClient();
+    client.createAttribute.mockResolvedValue({ attributeId: "a2" });
+    await addAttributeHandler(
+      { noteId: "n2", type: "label", name: "k", value: "v", isInheritable: true },
+      client,
+    );
+    expect(client.createAttribute).toHaveBeenCalledWith({
+      noteId: "n2",
+      type: "label",
+      name: "k",
+      value: "v",
+      isInheritable: true,
+    });
   });
 });

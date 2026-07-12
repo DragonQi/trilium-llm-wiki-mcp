@@ -6,10 +6,10 @@ import { registerAllTools } from "../../../src/tools/index.js";
 import type { EtapiClient } from "../../../src/etapi/client.js";
 
 const EXPECTED = [
-  // WF1 (19)
+  // WF1 (20)
   "search_notes","get_note","get_note_content","get_note_tree","get_note_subtree","get_note_path","get_app_info",
   "create_note","update_note","update_note_content","append_to_note","delete_note","move_note",
-  "get_attributes","set_attribute","delete_attribute","get_day_note","get_week_note","get_inbox_note",
+  "get_attributes","set_attribute","add_attribute","delete_attribute","get_day_note","get_week_note","get_inbox_note",
   // WF2 revisions (1)
   "create_note_revision",
   // WF2 branches (5)

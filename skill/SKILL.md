@@ -9,7 +9,7 @@ description: Use when working with the user's personal LLM-wiki in Trilium — i
 
 A personal knowledge wiki where **Trilium is the single backend** and you (the agent) own the wiki layer. Raw sources are immutable truth; wiki pages are your generated synthesis. **Drift** — outdated, contradictory, orphaned pages — is the enemy; lint is mandatory, not optional.
 
-- **MCP tools are your hands** — 51 tools via the `trilium` MCP server (search, read/write notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export, calendar, system).
+- **MCP tools are your hands** — 52 tools via the `trilium` MCP server (search, read/write notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export, calendar, system).
 - **This skill is your brain** — *when* and *how* to use them.
 - The companion CLI `trilium-wiki` (init/brief/checkpoint) handles automation outside the MCP transport.
 

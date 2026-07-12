@@ -34,6 +34,25 @@ export async function deleteAttributeHandler(
     `Deleted attribute ${args.attributeId}`,
   );
 }
+export async function addAttributeHandler(
+  args: { noteId: string; type: "label" | "relation"; name: string; value?: string; isInheritable?: boolean },
+  client: EtapiClient,
+): Promise<CallToolResult> {
+  // Create-only (POST /attributes) — does NOT upsert. Use this for multi-valued
+  // relations (e.g. several `relatesTo` on one note); `set_attribute` upserts by
+  // (type, name) and would collapse same-name relations into one.
+  return asToolResult(
+    () =>
+      client.createAttribute({
+        noteId: args.noteId,
+        type: args.type,
+        name: args.name,
+        value: args.value,
+        isInheritable: args.isInheritable,
+      }),
+    (a) => JSON.stringify(a),
+  );
+}
 
 export function registerAttributes(server: McpServer, client: EtapiClient): void {
   server.registerTool(
@@ -66,5 +85,20 @@ export function registerAttributes(server: McpServer, client: EtapiClient): void
       inputSchema: { attributeId: z.string() },
     },
     (a) => deleteAttributeHandler(a as { attributeId: string }, client),
+  );
+  server.registerTool(
+    "add_attribute",
+    {
+      description:
+        "Create a NEW label/relation on a note WITHOUT upserting — preserves existing same-name attributes. Use for multi-valued relations (several `relatesTo` on one note coexist); `set_attribute` upserts by (type,name) and collapses same-name relations to one. For relations value is the target note id.",
+      inputSchema: {
+        noteId: z.string(),
+        type: z.enum(["label", "relation"]),
+        name: z.string().regex(/^[^\s]+$/, "no whitespace").describe("Attribute name (no spaces)"),
+        value: z.string().optional().describe("Value (target noteId for relations)"),
+        isInheritable: z.boolean().optional(),
+      },
+    },
+    (a) => addAttributeHandler(a as Parameters<typeof addAttributeHandler>[0], client),
   );
 }
