@@ -8,7 +8,8 @@
     "node": ">=18"
   },
   "bin": {
-    "trilium-mcp": "dist/index.js"
+    "trilium-mcp": "dist/index.js",
+    "trilium-wiki": "dist/cli/index.js"
   },
   "exports": {
     ".": "./dist/index.js"
