@@ -30,13 +30,13 @@ cp .env.example .env
 node scripts/get-etapi-token.mjs --write   # reads TRILIUM_PASSWORD, writes TRILIUM_TOKEN
 
 # 4) Register the MCP server in Claude Code + merge the wiki hooks
-npx -y trilium-llm-wiki-mcp trilium-wiki install
+npx -y -p trilium-llm-wiki-mcp trilium-wiki install
 
 # 5) Seed the LLM Wiki vault in Trilium
-npx -y trilium-llm-wiki-mcp trilium-wiki init
+npx -y -p trilium-llm-wiki-mcp trilium-wiki init
 
 # 6) Verify
-npx -y trilium-llm-wiki-mcp trilium-wiki doctor
+npx -y -p trilium-llm-wiki-mcp trilium-wiki doctor
 ```
 
 That's it — start a Claude Code session, ask it to "add this to my wiki", and
@@ -48,8 +48,13 @@ the `trilium-wiki` skill takes over.
 
 | Bin | Role |
 |---|---|
-| `trilium-mcp` | stdio MCP server — the agent's **hands** (51 tools: notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export/import, calendar, system, …). |
+| `trilium-llm-wiki-mcp` / `trilium-mcp` | stdio MCP server — the agent's **hands** (51 tools: notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export/import, calendar, system, …). |
 | `trilium-wiki` | companion CLI — automation **outside** MCP (hooks fire when MCP isn't connected): `init`, `brief`, `checkpoint`, `doctor`, `install`. |
+
+> **npx note:** the package ships multiple bins, so be explicit —
+> MCP server: `npx -y trilium-llm-wiki-mcp` (default bin);
+> CLI: `npx -y -p trilium-llm-wiki-mcp trilium-wiki <cmd>` (the `-p` selects the CLI bin).
+> Or install globally: `npm i -g trilium-llm-wiki-mcp` → `trilium-mcp` / `trilium-wiki` on PATH.
 
 ## Register the MCP server
 
