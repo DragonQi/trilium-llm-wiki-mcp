@@ -49,7 +49,22 @@ export async function dispatch(argv: string[]): Promise<number> {
 
 async function main(): Promise<void> {
   const code = await dispatch(process.argv);
-  process.exit(code);
+  process.exitCode = code;
+  // Force-close lingering fetch (undici) keepalive sockets so the process exits
+  // promptly. We deliberately do NOT call process.exit(): on Windows it can trip
+  // a libuv UV_HANDLE_CLOSING assertion while a keepalive handle is mid-close,
+  // and on all platforms keepalive would otherwise keep the event loop alive
+  // for several seconds after the command's real work is done.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handles: any[] = (process as any)._getActiveHandles?.() ?? [];
+  for (const h of handles) {
+    if (h === process.stdout || h === process.stderr || h === process.stdin) continue;
+    try {
+      h.destroy?.();
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 void main();
