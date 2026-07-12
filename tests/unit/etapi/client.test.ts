@@ -161,17 +161,19 @@ describe("EtapiClient direct methods", () => {
 });
 
 describe("EtapiClient composite methods", () => {
-  it("getNoteTree searches depth eq1", async () => {
+  it("getNoteTree walks direct children", async () => {
     fetchMock.routes = [
       {
-        match: /\/notes\?search=&ancestorNoteId=root&ancestorDepth=eq1/,
+        match: /\/notes\/root$/,
         method: "GET",
-        respond: { body: { results: [{ noteId: "c1" } as Note] } },
+        respond: { body: { noteId: "root", childNoteIds: ["c1", "c2"] } as Note },
       },
+      { match: /\/notes\/c1$/, method: "GET", respond: { body: { noteId: "c1" } as Note } },
+      { match: /\/notes\/c2$/, method: "GET", respond: { body: { noteId: "c2" } as Note } },
     ];
     const client = makeClient();
     const kids = await client.getNoteTree("root");
-    expect(kids[0]!.noteId).toBe("c1");
+    expect(kids.map((n) => n.noteId)).toEqual(["c1", "c2"]);
   });
 
   it("getNoteAttributes reads embedded attributes", async () => {

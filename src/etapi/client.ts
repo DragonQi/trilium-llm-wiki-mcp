@@ -200,13 +200,13 @@ export class EtapiClient {
   }
 
   // ---- composite methods (ETAPI has no direct endpoint) ----
-  getNoteTree(noteId: string, opts: { limit?: number } = {}): Promise<Note[]> {
-    return this.searchNotes({
-      search: "",
-      ancestorNoteId: noteId,
-      ancestorDepth: "eq1",
-      limit: opts.limit ?? 50,
-    });
+  async getNoteTree(noteId: string, opts: { limit?: number } = {}): Promise<Note[]> {
+    // ETAPI has no direct "children" endpoint and recent versions reject empty
+    // search, so walk the Note.childNoteIds[] array (N+1 requests, reliable
+    // across versions) instead of relying on ?search=&ancestorDepth=eq1.
+    const parent = await this.getNote(noteId);
+    const childIds = parent.childNoteIds.slice(0, opts.limit ?? 50);
+    return Promise.all(childIds.map((id) => this.getNote(id)));
   }
 
   async getNoteSubtree(
