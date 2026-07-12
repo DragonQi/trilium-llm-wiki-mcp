@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "trilium": {
+      "command": "npx",
+      "args": ["-y", "trilium-llm-wiki-mcp"],
+      "env": {
+        "TRILIUM_URL": "http://localhost:8080",
+        "TRILIUM_TOKEN": "${TRILIUM_TOKEN}"
+      }
+    }
+  }
+}
