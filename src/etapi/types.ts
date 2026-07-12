@@ -172,8 +172,7 @@ export interface CreateAttachmentInput {
   content?: string; // plain string (text only); binary via setAttachmentContent
 }
 
-export type UpdateAttachmentInput = Pick<Attachment, "position"> &
-  Partial<Pick<Attachment, "role" | "mime" | "title">>;
+export type UpdateAttachmentInput = Partial<Pick<Attachment, "role" | "mime" | "title" | "position">>;
 
 export type MetricsFormat = "prometheus" | "json";
 
