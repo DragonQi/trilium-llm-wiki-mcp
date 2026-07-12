@@ -4,6 +4,26 @@
   "description": "MCP server + LLM-wiki skill for Trilium/TriliumNext Notes (Karpathy LLM-wiki methodology).",
   "type": "module",
   "license": "MIT",
+  "author": "DragonQi",
+  "homepage": "https://github.com/DragonQi/trilium-llm-wiki-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DragonQi/trilium-llm-wiki-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DragonQi/trilium-llm-wiki-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "trilium",
+    "triliumnext",
+    "llm-wiki",
+    "knowledge-management",
+    "claude",
+    "karpathy",
+    "etapi"
+  ],
   "engines": {
     "node": ">=18"
   },
@@ -14,6 +34,14 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "skill",
+    "scripts",
+    ".mcp.json",
+    "docker-compose.yml",
+    ".env.example"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
@@ -22,7 +50,11 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "prepare": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -40,3 +72,4 @@
     "vitest": "^2.1.0"
   }
 }
+

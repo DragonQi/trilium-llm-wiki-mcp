@@ -1,70 +1,154 @@
 # trilium-llm-wiki-mcp
 
-MCP server exposing Trilium/TriliumNext Notes via ETAPI, plus an LLM-wiki
-skill (Karpathy methodology) where Trilium is the single wiki backend.
+An [MCP](https://modelcontextprotocol.io) server + LLM-wiki skill that turns
+[Trilium / TriliumNext Notes](https://github.com/TriliumNext/Notes) into the
+single backend for a personal **LLM-wiki** (the [Karpathy methodology](https://github.com/karpathy/llm-wiki)):
+ingest sources, query accumulated knowledge, lint for drift — with Trilium as
+the typed-graph store and search engine.
 
-**Status:** WF0–WF5 done — MCP server (51 tools), companion CLI `trilium-wiki`,
-`SKILL.md`, and SessionStart/Stop hooks. Remaining: E2E methodology test (WF6)
-and full quickstart/multi-PC/npm publish (WF7).
+> **MCP = the hands** (51 tools). **The skill = the brain** (when/how to use them). **Trilium = the backend** (notes = pages, relations = typed graph, labels = queryable metadata, built-in search = the "map").
 
-## Develop
+Clean-room, MIT, ESM TypeScript. 51 MCP tools, a companion CLI, a SKILL, and
+SessionStart/Stop hooks — all tested against a live Docker Trilium.
+
+---
+
+## Quickstart
+
+You need Docker (or an existing Trilium) and Node ≥ 18.
 
 ```bash
-npm install
-npm run build
-npm test                 # unit (mocked ETAPI)
-npm run test:integration # vs a live Trilium (needs TRILIUM_URL/TRILIUM_TOKEN)
+# 1) Run a local TriliumNext (one-time first-run init in the browser)
+docker compose up -d
+open http://localhost:8080            # choose "new user", set a password
+
+# 2) Put connection details in .env
+cp .env.example .env
+# edit .env: TRILIUM_URL=http://localhost:8080, TRILIUM_PASSWORD=<your password>
+
+# 3) Get an ETAPI token into .env
+node scripts/get-etapi-token.mjs --write   # reads TRILIUM_PASSWORD, writes TRILIUM_TOKEN
+
+# 4) Register the MCP server in Claude Code + merge the wiki hooks
+npx -y trilium-llm-wiki-mcp trilium-wiki install
+
+# 5) Seed the LLM Wiki vault in Trilium
+npx -y trilium-llm-wiki-mcp trilium-wiki init
+
+# 6) Verify
+npx -y trilium-llm-wiki-mcp trilium-wiki doctor
 ```
+
+That's it — start a Claude Code session, ask it to "add this to my wiki", and
+the `trilium-wiki` skill takes over.
+
+---
 
 ## Two binaries
 
 | Bin | Role |
 |---|---|
-| `trilium-mcp` | stdio MCP server — the agent's "hands" (51 tools) |
-| `trilium-wiki` | companion CLI — automation outside MCP: `init`, `brief`, `checkpoint`, `doctor`, `install` |
+| `trilium-mcp` | stdio MCP server — the agent's **hands** (51 tools: notes, attributes/relations, graph relevance `find_related`, retrieval pipeline `query_wiki`, attachments, export/import, calendar, system, …). |
+| `trilium-wiki` | companion CLI — automation **outside** MCP (hooks fire when MCP isn't connected): `init`, `brief`, `checkpoint`, `doctor`, `install`. |
 
-## Register the MCP server (local dev)
+## Register the MCP server
+
+User scope (works everywhere):
 
 ```bash
 claude mcp add --scope user trilium \
   --env TRILIUM_URL=http://localhost:8080 \
   --env TRILIUM_TOKEN=<etapi-token> \
-  -- node dist/index.js
+  -- npx -y trilium-llm-wiki-mcp
 ```
 
-A project-scope `.mcp.json` is included for env-driven registration.
+Or project scope — a ready `.mcp.json` is included (env-driven, no absolute
+paths). Local dev without npx: `-- node dist/index.js`.
 
 ## Hooks (SessionStart / Stop)
 
-`trilium-wiki install` non-destructively merges two hooks into `~/.claude/settings.json`:
+`trilium-wiki install` non-destructively merges two hooks into
+`~/.claude/settings.json`:
 
-- **SessionStart** → `trilium-wiki brief` — injects a wiki brief (Index excerpt, recent Log, weak/orphan/query counts) as session context, so every session starts aware of the wiki.
-- **Stop** → `trilium-wiki checkpoint` — appends a `## [date] session | end` marker to the Log with weak/orphan counts.
+- **SessionStart** → `trilium-wiki brief` — injects a wiki brief (Index excerpt,
+  recent Log, weak/orphan/query counts) as session context.
+- **Stop** → `trilium-wiki checkpoint` — appends a `## [date] session | end`
+  marker to the Log.
 
-The merged block looks like:
+Idempotent (re-running won't duplicate entries) and preserves any unrelated
+hooks. Verify: `trilium-wiki brief` / `trilium-wiki doctor`.
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "npx -y -p trilium-llm-wiki-mcp trilium-wiki brief" }] }
-    ],
-    "Stop": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "npx -y -p trilium-llm-wiki-mcp trilium-wiki checkpoint" }] }
-    ]
-  }
-}
+## Multi-PC (one wiki, many machines)
+
+Two supported topologies (spec §6.1):
+
+1. **Local Trilium + sync (recommended, offline-capable).** Each PC runs its own
+   `docker compose up -d` and points `TRILIUM_URL` at `localhost`. Designate one
+   always-on machine as the **sync server** (Trilium UI → *Sync → Server
+   hostname*); the others sync to it. Every PC works locally and replicates.
+2. **Central server.** One shared Trilium on a home server/VPS/tunnel; every PC
+   sets `TRILIUM_URL` to it (no local instance). Simpler, but needs online.
+
+`docker-compose.yml`, `.mcp.json`, the skill, and the hook commands use only
+`npx`/`~` and env vars — no PC-specific paths — so the same setup applies on
+every machine. Dotfiles-friendly: keep `~/.trilium-wiki.env`, the skill, and the
+hooks block in your config repo and run `trilium-wiki install` on each PC.
+
+---
+
+## Architecture
+
+```
+                   ┌───────────────────────────┐
+   Claude Code ───▶│ trilium-mcp (MCP/stdio)   │──┐  ETAPI
+   (the agent)     │ 51 tools over EtapiClient │  │  HTTP
+                   └───────────────────────────┘  ▼
+   SessionStart ──▶┌───────────────────────────┐  ┌──────────────┐
+   Stop ──────────▶│ trilium-wiki (CLI)        │─▶│ TriliumNext  │
+                   │ init/brief/checkpoint/... │  │ (Docker 8080)│
+                   └───────────────────────────┘  └──────────────┘
+   skill: SKILL.md ─ ingest/query/lint/delete procedures (the "brain")
 ```
 
-`install` is idempotent (re-running won't duplicate hook entries) and preserves any unrelated hooks you already have.
+- **`src/etapi/client.ts`** — the single ETAPI client (engine + direct +
+  composite methods). Used by both `trilium-mcp` and `trilium-wiki`.
+- **`src/tools/*.ts`** — 51 thin MCP tools (handler + `register…`).
+- **`src/graph/`** — relevance model (`find_related`, 4-signal) + retrieval
+  pipeline (`query_wiki`), over `graphology`.
+- **`src/cli/`** — the `trilium-wiki` companion CLI.
+- **`skill/SKILL.md`** — the wiki methodology (frontmatter + ingest/query/lint/delete).
 
-### Verify the hooks
+## Development
 
 ```bash
+npm install
 npm run build
-trilium-wiki doctor        # Trilium reachable + vault present?
-trilium-wiki brief         # preview exactly what SessionStart injects
-trilium-wiki checkpoint    # preview exactly what Stop runs
+npm test                  # unit (mocked ETAPI)
+npm run test:integration  # vs live Trilium (needs TRILIUM_URL/TRILIUM_TOKEN)
+npm run lint
 ```
 
-Then start a Claude Code session in this project — the SessionStart hook fires and the brief appears in context. (The hook command is exercised end-to-end by `tests/integration/hooks.integration.test.ts`.)
+163 tests (127 unit + 36 integration) cover every tool, the graph core, the CLI,
+and a full ingest→query→lint→delete methodology cycle.
+
+## Tool reference (51)
+
+Notes (read/search/write/tree/subtree/path/append/move) · attributes (get/set/
+delete/upsert + extras) · branches/clone · attachments (7) · export/import ·
+revisions (snapshot) · calendar (day/week/month/year/inbox) · system (login/
+logout/backup/metrics) · composite (`upsert_note`, `get_backlinks`, `find_orphans`,
+`search_by_attribute`, `replace_note_section`, `bulk_set_attributes`) · graph
+(`find_related`, `query_wiki`).
+
+## Limitations (ETAPI)
+
+TriliumNext's ETAPI exposes no: revision listing/reading, note undelete, recent-
+changes history, or protected-note content. The corresponding tools are omitted
+(documented as non-goals); protected notes surface a clear `NOTE_IS_PROTECTED`.
+
+## License & attribution
+
+MIT © DragonQi. Clean-room implementation of the public LLM-wiki methodology by
+Andrej Karpathy (no source from the gist is included). ETAPI access targets
+Trilium/TriliumNext Notes; this project is independent and not affiliated. See
+`NOTICE`.
