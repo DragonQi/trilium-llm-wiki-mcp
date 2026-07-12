@@ -40,7 +40,8 @@
     "scripts",
     ".mcp.json",
     "docker-compose.yml",
-    ".env.example"
+    ".env.example",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc",
