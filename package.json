@@ -4,9 +4,15 @@
   "description": "MCP server + LLM-wiki skill for Trilium/TriliumNext Notes (Karpathy LLM-wiki methodology).",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=18" },
-  "bin": { "trilium-mcp": "dist/index.js" },
-  "exports": { ".": "./dist/index.js" },
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "trilium-mcp": "dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
@@ -19,6 +25,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "graphology": "^0.26.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {

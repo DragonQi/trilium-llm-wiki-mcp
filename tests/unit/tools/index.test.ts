@@ -26,6 +26,8 @@ const EXPECTED = [
   "login","logout","create_backup","get_metrics",
   // WF2 composite (6)
   "upsert_note","get_backlinks","find_orphans","search_by_attribute","replace_note_section","bulk_set_attributes",
+  // WF2b graph core (2)
+  "find_related","query_wiki",
 ];
 
 describe("registerAllTools", () => {

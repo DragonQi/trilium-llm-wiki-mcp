@@ -13,6 +13,7 @@ import { registerExportImport } from "./export-import.js";
 import { registerCalendarExtra } from "./calendar-extra.js";
 import { registerSystem } from "./system.js";
 import { registerComposite } from "./composite.js";
+import { registerGraph } from "./graph.js";
 
 export function registerAllTools(server: McpServer, client: EtapiClient): void {
   registerSearch(server, client);
@@ -28,4 +29,5 @@ export function registerAllTools(server: McpServer, client: EtapiClient): void {
   registerCalendarExtra(server, client);
   registerSystem(server, client);
   registerComposite(server, client);
+  registerGraph(server, client);
 }
