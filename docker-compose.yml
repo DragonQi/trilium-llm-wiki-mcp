@@ -1,0 +1,9 @@
+services:
+  trilium:
+    image: triliumnext/notes:latest
+    container_name: trilium-llm-wiki
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trilium-data:/root/trilium-data
+    restart: unless-stopped
