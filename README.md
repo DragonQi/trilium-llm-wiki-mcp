@@ -1,8 +1,12 @@
 # trilium-llm-wiki-mcp
 
+[![npm version](https://img.shields.io/npm/v/trilium-llm-wiki-mcp.svg)](https://www.npmjs.com/package/trilium-llm-wiki-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/trilium-llm-wiki-mcp.svg)](https://www.npmjs.com/package/trilium-llm-wiki-mcp)
+[![license: MIT](https://img.shields.io/npm/l/trilium-llm-wiki-mcp.svg)](#license--attribution)
+
 An [MCP](https://modelcontextprotocol.io) server + LLM-wiki skill that turns
 [Trilium / TriliumNext Notes](https://github.com/TriliumNext/Notes) into the
-single backend for a personal **LLM-wiki** (the [Karpathy methodology](https://github.com/karpathy/llm-wiki)):
+single backend for a personal **LLM-wiki** (the [Karpathy methodology](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)):
 ingest sources, query accumulated knowledge, lint for drift — with Trilium as
 the typed-graph store and search engine.
 

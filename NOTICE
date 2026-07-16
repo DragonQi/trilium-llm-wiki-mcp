@@ -2,7 +2,8 @@ trilium-llm-wiki-mcp
 Copyright (c) 2026 DragonQi — Licensed under the MIT License (see LICENSE).
 
 This product includes a clean-room implementation of the "LLM-wiki" personal
-knowledge methodology described by Andrej Karpathy (public gist, 2025). No
+knowledge methodology described by Andrej Karpathy (public gist, 2025:
+https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). No
 source code from that gist is included; only the methodology is followed.
 
 ETAPI access is provided for Trilium Notes / TriliumNext Notes
