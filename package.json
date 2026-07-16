@@ -1,6 +1,6 @@
 {
   "name": "trilium-llm-wiki-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server + LLM-wiki skill for Trilium/TriliumNext Notes (Karpathy LLM-wiki methodology).",
   "type": "module",
   "license": "MIT",
@@ -74,4 +74,3 @@
     "vitest": "^2.1.0"
   }
 }
-
